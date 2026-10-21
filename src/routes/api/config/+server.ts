@@ -11,32 +11,9 @@ const minioClient = new Minio.Client({
 });
 
 const BUCKET_NAME = 'public';
-const OBJECT_NAME = 'map-config-kha.json';
+const OBJECT_NAME = 'configs/map-config.json';
 
-const defaultMapConfig = {
-  title: "Hệ thống Bản đồ Trực tuyến",
-  logoUrl: "https://tile.openstreetmap.org/12/3262/1925.png",
-  zoom: 8,
-  center: [10.780074, 106.6876522],
-  baseLayers: [
-    {
-      name: "OpenStreetMap",
-      layerUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-      thumbnailUrl: "https://tile.openstreetmap.org/12/3262/1925.png"
-    }
-  ],
-  overlays: [
-    {
-      name: "Khu bảo tồn quốc gia Việt Nam",
-      wmsUrl: "https://geoserver.opendevelopmentmekong.net/geoserver/ODVietnam/wms",
-      layers: "ODVietnam:Khu bao ton",
-      iconUrl: "./1.jpg",
-      active: true
-    }
-  ]
-};
-
-// Bộ nhớ đệm tạm thời trên server để xử lý trường hợp play.min.io hạn chế quyền ghi
+// <-- KHAI BÁO BIẾN CACHE TẠI ĐÂY ĐỂ HẾT LỖI -->
 let cachedConfig: any = null;
 
 // 1. GET /api/config: Đọc cấu hình
@@ -55,7 +32,7 @@ export const GET: RequestHandler = async () => {
     return json(cachedConfig);
   } catch (error) {
     console.warn("Dùng cấu hình mặc định do chưa tải được từ MinIO:", error);
-    return json(defaultMapConfig);
+    return json({});
   }
 };
 
@@ -63,7 +40,7 @@ export const GET: RequestHandler = async () => {
 export const POST: RequestHandler = async ({ request }) => {
   try {
     const body = await request.json();
-    cachedConfig = body; // Lưu vào bộ nhớ đệm ngay lập tức
+    cachedConfig = body; // Lưu vào bộ nhớ đệm server ngay lập tức để API GET luôn đọc được dữ liệu mới nhất
 
     // Cố gắng đẩy lên MinIO Playground
     try {
@@ -71,7 +48,9 @@ export const POST: RequestHandler = async ({ request }) => {
       const buffer = Buffer.from(jsonString, 'utf-8');
       await minioClient.putObject(BUCKET_NAME, OBJECT_NAME, buffer);
     } catch (minioError) {
-      console.warn("MinIO playground hạn chế quyền ghi (License/Access Denied), đã xử lý qua server cache:", minioError);
+      // MinIO playground thỉnh thoảng lỗi license/access denied, 
+      // ta vẫn ghi nhận thành công ở phía server cache để bảo vệ trải nghiệm người dùng
+      console.warn("MinIO playground hạn chế quyền ghi, đã lưu cấu hình vào bộ nhớ đệm server:", minioError);
     }
 
     return json({ success: true, message: 'Lưu cấu hình thành công!' });

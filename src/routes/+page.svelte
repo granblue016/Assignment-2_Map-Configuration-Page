@@ -21,7 +21,7 @@
           properties: {
             name: { type: "string", title: "Tên lớp nền" },
             layerUrl: { type: "string", title: "URL Tile/Layer" },
-            thumbnailUrl: { type: "string", title: "URL Thumbnail" }
+            iconUrl: { type: "string", title: "URL Icon" }
           }
         }
       },
@@ -51,7 +51,7 @@
       {
         name: "OpenStreetMap",
         layerUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-        thumbnailUrl: "https://tile.openstreetmap.org/12/3262/1925.png"
+        iconUrl: "https://tile.openstreetmap.org/12/3262/1925.png"
       }
     ],
     overlays: [
