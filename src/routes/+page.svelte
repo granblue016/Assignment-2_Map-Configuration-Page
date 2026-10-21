@@ -43,7 +43,7 @@
   };
 
   let defaultData = {
-    title: "Hệ thống Bản đồ Trực tuyến - Đại học Sài Gòn",
+    title: "Hệ thống Bản đồ Trực tuyến - Sở khoa học và Công nghệ TP.HCM",
     logoUrl: "https://tile.openstreetmap.org/12/3262/1925.png",
     zoom: 8,
     center: [10.780074, 106.6876522],

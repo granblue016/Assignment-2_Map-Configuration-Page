@@ -14,7 +14,7 @@ const BUCKET_NAME = 'public';
 const OBJECT_NAME = 'configs/map-config.json';
 
 const defaultMapConfig = {
-  title: "Hệ thống Bản đồ Trực tuyến - Đại học Sài Gòn",
+  title: "Hệ thống Bản đồ Trực tuyến - Sở khoa học và Công nghệ TP.HCM",
   logoUrl: "https://tile.openstreetmap.org/12/3262/1925.png",
   zoom: 8,
   center: [10.780074, 106.6876522],
@@ -97,7 +97,7 @@ export const GET: RequestHandler = async () => {
     }
     const parsed = JSON.parse(data);
     
-    if (parsed && parsed.title && Array.isArray(parsed.overlays)) {
+    if (parsed && parsed.title && Array.isArray(parsed.overlays) && Array.isArray(parsed.baseLayers)) {
       cachedConfig = parsed;
       return json(cachedConfig, { headers: corsHeaders });
     }
