@@ -2,7 +2,6 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import * as Minio from 'minio';
 
-// Cấu hình kết nối MinIO Playground (theo đúng yêu cầu đề bài)
 const minioClient = new Minio.Client({
   endPoint: 'play.min.io',
   port: 443,
@@ -11,8 +10,9 @@ const minioClient = new Minio.Client({
   secretKey: 'minioadmin'
 });
 
-const BUCKET_NAME = 'public';
-const OBJECT_NAME = 'map-config-kha.json'; // Bạn có thể đổi tên file theo ý muốn
+// Đổi tên bucket thành tên riêng biệt của bạn để không bị tranh chấp quyền trên play.min.io
+const BUCKET_NAME = 'map-config-kha-bucket';
+const OBJECT_NAME = 'map-config.json';
 
 const defaultMapConfig = {
   title: "Hệ thống Bản đồ Trực tuyến",
@@ -37,9 +37,22 @@ const defaultMapConfig = {
   ]
 };
 
+// Hàm tự động kiểm tra và tạo bucket riêng nếu chưa có
+async function ensureBucketExists() {
+  try {
+    const exists = await minioClient.bucketExists(BUCKET_NAME);
+    if (!exists) {
+      await minioClient.makeBucket(BUCKET_NAME, 'us-east-1');
+    }
+  } catch (e) {
+    console.error("Lỗi kiểm tra hoặc tạo bucket:", e);
+  }
+}
+
 // 1. GET /api/config: Đọc file từ MinIO
 export const GET: RequestHandler = async () => {
   try {
+    await ensureBucketExists();
     const stream = await minioClient.getObject(BUCKET_NAME, OBJECT_NAME);
     let data = '';
     
@@ -60,7 +73,8 @@ export const POST: RequestHandler = async ({ request }) => {
     const body = await request.json();
     const jsonString = JSON.stringify(body, null, 2);
     
-    // Đảm bảo bucket tồn tại (hoặc có thể bỏ qua nếu bucket public đã có sẵn)
+    await ensureBucketExists();
+    
     const buffer = Buffer.from(jsonString, 'utf-8');
     await minioClient.putObject(BUCKET_NAME, OBJECT_NAME, buffer);
 
