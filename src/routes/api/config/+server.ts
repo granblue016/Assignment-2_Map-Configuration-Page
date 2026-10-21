@@ -1,9 +1,18 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import fs from 'fs';
-import path from 'path';
+import * as Minio from 'minio';
 
-const configFilePath = path.resolve('static/map-config.json');
+// Cấu hình kết nối MinIO Playground (theo đúng yêu cầu đề bài)
+const minioClient = new Minio.Client({
+  endPoint: 'play.min.io',
+  port: 443,
+  useSSL: true,
+  accessKey: 'minioadmin',
+  secretKey: 'minioadmin'
+});
+
+const BUCKET_NAME = 'public';
+const OBJECT_NAME = 'map-config-kha.json'; // Bạn có thể đổi tên file theo ý muốn
 
 const defaultMapConfig = {
   title: "Hệ thống Bản đồ Trực tuyến",
@@ -28,28 +37,36 @@ const defaultMapConfig = {
   ]
 };
 
-// 1. GET /api/config: Đọc file từ thư mục static cục bộ
+// 1. GET /api/config: Đọc file từ MinIO
 export const GET: RequestHandler = async () => {
   try {
-    if (fs.existsSync(configFilePath)) {
-      const fileContent = fs.readFileSync(configFilePath, 'utf-8');
-      return json(JSON.parse(fileContent));
+    const stream = await minioClient.getObject(BUCKET_NAME, OBJECT_NAME);
+    let data = '';
+    
+    for await (const chunk of stream) {
+      data += chunk;
     }
-    return json(defaultMapConfig);
+    
+    return json(JSON.parse(data));
   } catch (error) {
-    console.error("Lỗi đọc file cấu hình:", error);
+    console.warn("Chưa có file trên MinIO hoặc lỗi đọc, trả về cấu hình mặc định:", error);
     return json(defaultMapConfig);
   }
 };
 
-// 2. POST /api/config: Ghi đè file cấu hình vào thư mục static cục bộ
+// 2. POST /api/config: Ghi file lên MinIO
 export const POST: RequestHandler = async ({ request }) => {
   try {
     const body = await request.json();
-    fs.writeFileSync(configFilePath, JSON.stringify(body, null, 2), 'utf-8');
-    return json({ success: true, message: 'Lưu cấu hình thành công!' });
+    const jsonString = JSON.stringify(body, null, 2);
+    
+    // Đảm bảo bucket tồn tại (hoặc có thể bỏ qua nếu bucket public đã có sẵn)
+    const buffer = Buffer.from(jsonString, 'utf-8');
+    await minioClient.putObject(BUCKET_NAME, OBJECT_NAME, buffer);
+
+    return json({ success: true, message: 'Lưu cấu hình lên MinIO thành công!' });
   } catch (error) {
-    console.error("Lỗi ghi file cấu hình:", error);
+    console.error("Lỗi ghi cấu hình lên MinIO:", error);
     return json({ success: false, error: String(error) }, { status: 500 });
   }
 };

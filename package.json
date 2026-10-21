@@ -41,6 +41,6 @@
 	},
 	"dependencies": {
 		"jedison": "^1.29.0",
-		"minio": "^8.0.7"
+		"minio": "^7.1.3"
 	}
 }
