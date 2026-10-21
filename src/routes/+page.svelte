@@ -21,7 +21,7 @@
           properties: {
             name: { type: "string", title: "Tên lớp nền" },
             layerUrl: { type: "string", title: "URL Tile/Layer" },
-            iconUrl: { type: "string", title: "URL Icon" }
+            thumbnailUrl: { type: "string", title: "URL Thumbnail" }
           }
         }
       },
@@ -43,7 +43,7 @@
   };
 
   let defaultData = {
-    title: "Hệ thống Bản đồ Trực tuyến",
+    title: "Hệ thống Bản đồ Trực tuyến - Đại học Sài Gòn",
     logoUrl: "https://tile.openstreetmap.org/12/3262/1925.png",
     zoom: 8,
     center: [10.780074, 106.6876522],
@@ -51,7 +51,12 @@
       {
         name: "OpenStreetMap",
         layerUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-        iconUrl: "https://tile.openstreetmap.org/12/3262/1925.png"
+        thumbnailUrl: "https://tile.openstreetmap.org/12/3262/1925.png"
+      },
+      {
+        name: "Vệ tinh",
+        layerUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        thumbnailUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/12/1925/3262.png"
       }
     ],
     overlays: [
@@ -61,14 +66,43 @@
         layers: "ODVietnam:Khu bao ton",
         iconUrl: "./1.jpg",
         active: true
+      },
+      {
+        name: "Tuần suât lũ lụt",
+        wmsUrl: "https://geoserver.opendevelopmentmekong.net/geoserver/ODVietnam/wms",
+        layers: "ODVietnam:Flood_frequency-contour",
+        iconUrl: "./2.jpg",
+        active: false
+      },
+      {
+        name: "Covid-19",
+        wmsUrl: "https://geoserver.opendevelopmentmekong.net/geoserver/ODVietnam/wms",
+        layers: "ODVietnam:10453931-345b-40fb-adc0-35eca5831381",
+        iconUrl: "./3.png",
+        active: false
+      },
+      {
+        name: "Danh sách di sản thế giới tại Việt Nam",
+        wmsUrl: "https://geoserver.opendevelopmentmekong.net/geoserver/ODVietnam/wms",
+        layers: "ODVietnam:World Heritage Site of Vietnam (V.vietnamese)",
+        iconUrl: "./4.jpg",
+        active: false
+      },
+      {
+        name: "Các dự án hộ trợ của ngân hàng thế giới tại Việt Nam",
+        wmsUrl: "https://geoserver.opendevelopmentmekong.net/geoserver/ODVietnam/wms",
+        layers: "ODVietnam:World_bank_aid_vn",
+        iconUrl: "./5.jpg",
+        active: false
       }
     ]
   };
 
   let editorContainer: HTMLDivElement;
   
-  // Khai báo đúng chuẩn $state cho Svelte 5
+  // Khai báo trạng thái chuẩn Svelte 5 bằng $state
   let statusMessage = $state('');
+  let isSuccess = $state(true);
   let isLoading = $state(true);
   let editorInstance: any = null;
 
@@ -83,7 +117,7 @@
         }
       }
     } catch (e) {
-      console.warn("Sử dụng dữ liệu mặc định:", e);
+      console.warn("Sử dụng dữ liệu mặc định do không gọi được API:", e);
     }
 
     try {
@@ -102,7 +136,7 @@
     } catch (e) {
       console.error("Lỗi khởi tạo Jedison:", e);
     } finally {
-      isLoading = false; // Tắt trạng thái đang tải, form sẽ hiện ra ngay lập tức
+      isLoading = false; 
     }
   });
 
@@ -112,6 +146,7 @@
     try {
       const currentData = editorInstance.getValue();
       statusMessage = "Đang lưu cấu hình...";
+      isSuccess = true;
       
       const response = await fetch('/api/config', {
         method: 'POST',
@@ -122,15 +157,18 @@
       const result = await response.json();
       if (result.success) {
         statusMessage = "Lưu cấu hình thành công!";
+        isSuccess = true;
       } else {
-        statusMessage = "Lưu thất bại: " + result.error;
+        statusMessage = "Lưu thất bại: " + (result.error || 'Lỗi server');
+        isSuccess = false;
       }
     } catch (err) {
       console.error(err);
       statusMessage = "Lỗi kết nối khi lưu!";
+      isSuccess = false;
     }
 
-    setTimeout(() => statusMessage = '', 4000);
+    setTimeout(() => statusMessage = '', 5000);
   }
 </script>
 
@@ -140,7 +178,7 @@
     <p class="text-sm text-gray-500 mb-6">Chỉnh sửa trực quan các thông số cấu hình bản đồ thông qua JSON Editor.</p>
 
     {#if isLoading}
-      <div class="py-12 text-center text-gray-500">Đang tải cấu hình...</div>
+      <div class="py-12 text-center text-gray-500">Đang tải cấu hình bản đồ...</div>
     {/if}
 
     <!-- Khu vực hiển thị JSON Editor -->
@@ -157,7 +195,9 @@
       </button>
 
       {#if statusMessage}
-        <span class="text-green-600 font-medium text-sm">{statusMessage}</span>
+        <span class={`font-medium text-sm ${isSuccess ? 'text-green-600' : 'text-red-600'}`}>
+          {statusMessage}
+        </span>
       {/if}
     </div>
   </div>
