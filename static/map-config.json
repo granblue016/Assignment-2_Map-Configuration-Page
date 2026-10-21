@@ -1,0 +1,25 @@
+{
+  "title": "Hệ thống Bản đồ Trực tuyến",
+  "logoUrl": "https://tile.openstreetmap.org/12/3262/1925.png",
+  "zoom": 8,
+  "center": [
+    10.780074,
+    106.6876522
+  ],
+  "baseLayers": [
+    {
+      "name": "OpenStreetMap",
+      "layerUrl": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "thumbnailUrl": "https://tile.openstreetmap.org/12/3262/1925.png"
+    }
+  ],
+  "overlays": [
+    {
+      "name": "Khu bảo tồn quốc gia Việt Nam",
+      "wmsUrl": "https://geoserver.opendevelopmentmekong.net/geoserver/ODVietnam/wms",
+      "layers": "ODVietnam:Khu bao ton",
+      "iconUrl": "./1.jpg",
+      "active": true
+    }
+  ]
+}
