@@ -99,8 +99,6 @@
   };
 
   let editorContainer: HTMLDivElement;
-  
-  // Khai báo trạng thái chuẩn Svelte 5 bằng $state
   let statusMessage = $state('');
   let isSuccess = $state(true);
   let isLoading = $state(true);
@@ -108,16 +106,17 @@
 
   onMount(async () => {
     let initialData = defaultData;
+
     try {
-      const res = await fetch('/api/config');
+      const res = await fetch('/api/config?t=' + Date.now());
       if (res.ok) {
         const json = await res.json();
-        if (json && !json.error) {
+        if (json && json.title && Array.isArray(json.overlays)) {
           initialData = json;
         }
       }
     } catch (e) {
-      console.warn("Sử dụng dữ liệu mặc định do không gọi được API:", e);
+      console.warn("Dùng cấu hình mặc định:", e);
     }
 
     try {
@@ -128,7 +127,7 @@
       if (editorContainer && Jedison) {
         editorInstance = new Jedison.Create({
           container: editorContainer,
-          theme: new Jedison.Theme(),
+          theme: new Jedison.ThemeBootstrap5(),
           schema: mapConfigSchema,
           data: initialData
         });
@@ -144,14 +143,23 @@
     if (!editorInstance) return;
 
     try {
-      const currentData = editorInstance.getValue();
+      let rawData = editorInstance.getValue();
+
+      // Chuẩn hóa kiểu dữ liệu: ép các thuộc tính active về kiểu boolean thuần túy
+      if (rawData && Array.isArray(rawData.overlays)) {
+        rawData.overlays = rawData.overlays.map((item: any) => ({
+          ...item,
+          active: item.active === true || item.active === 'true'
+        }));
+      }
+
       statusMessage = "Đang lưu cấu hình...";
       isSuccess = true;
       
       const response = await fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentData)
+        body: JSON.stringify(rawData)
       });
 
       const result = await response.json();
@@ -172,6 +180,10 @@
   }
 </script>
 
+<svelte:head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+</svelte:head>
+
 <main class="min-h-screen bg-gray-50 p-6">
   <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md p-6">
     <h1 class="text-2xl font-bold text-gray-800 mb-2">Trang Cấu Hình Bản Đồ (Map Config Admin)</h1>
@@ -181,12 +193,10 @@
       <div class="py-12 text-center text-gray-500">Đang tải cấu hình bản đồ...</div>
     {/if}
 
-    <!-- Khu vực hiển thị JSON Editor -->
     <div class="border border-gray-200 rounded-lg p-4 mb-6 min-h-[350px] bg-white" style:display={isLoading ? 'none' : 'block'}>
       <div bind:this={editorContainer}></div>
     </div>
 
-    <!-- Thanh công cụ / Nút lưu -->
     <div class="flex items-center justify-between">
       <button 
         onclick={handleSave}

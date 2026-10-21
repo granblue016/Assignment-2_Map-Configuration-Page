@@ -14,5 +14,9 @@ export default defineConfig({
 			},
 			adapter: adapter()
 		})
-	]
+	],
+	server: {
+    port: 4173,      // Port cố định bạn muốn chạy
+    strictPort: true // Bắt buộc dùng port này, nếu bị chiếm sẽ báo lỗi thay vì tự đổi sang port khác
+  }
 });
