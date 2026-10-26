@@ -156,6 +156,7 @@
         if (Array.isArray(rawData.overlays)) {
           rawData.overlays = rawData.overlays.map((item: any) => ({
             ...item,
+            id: item.id || "", // 👈 Quan trọng: Đảm bảo luôn là string để map viewer gọi .trim() không bị lỗi
             active: item.active === true || item.active === 'true' || item.active === '1'
           }));
         }
