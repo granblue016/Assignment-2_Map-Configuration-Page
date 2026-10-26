@@ -88,3 +88,14 @@ div[data-level="0"] > fieldset > legend.jedi-editor-legend {
   padding: 0 0 0.5rem 0 !important;
   align-items: center !important;
 }
+
+/* Tắt hoàn toàn chữ in hoa trên toàn bộ các thành phần của Jedison và Bootstrap */
+legend, 
+.jedi-editor-legend, 
+fieldset legend,
+.card-header,
+h3, h4, h5, h6,
+[class*="header"],
+[class*="title"] {
+  text-transform: none !important;
+}

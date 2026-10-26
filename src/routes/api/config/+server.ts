@@ -22,14 +22,12 @@ const defaultMapConfig = {
     {
       name: "OpenStreetMap",
       layerUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-      thumbnailUrl: "https://tile.openstreetmap.org/12/3262/1925.png",
-      // active: true
+      thumbnailUrl: "https://tile.openstreetmap.org/12/3262/1925.png"
     },
     {
       name: "Vệ tinh",
       layerUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      thumbnailUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/12/1925/3262.png",
-      // active: false
+      thumbnailUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/12/1925/3262.png"
     }
   ],
   overlays: [
@@ -73,7 +71,6 @@ const defaultMapConfig = {
 
 let cachedConfig: any = null;
 
-// Cấu hình Header CORS cho phép gọi chéo giữa các port (Admin vs Map Client)
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -81,7 +78,6 @@ const corsHeaders = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
 };
 
-// Xử lý preflight request cho CORS
 export const OPTIONS: RequestHandler = async () => {
   return new Response(null, { headers: corsHeaders });
 };
@@ -114,35 +110,16 @@ export const POST: RequestHandler = async ({ request }) => {
   try {
     const body = await request.json();
 
-    // 🛡️ BỔ SUNG QUAN TRỌNG: Chuẩn hóa baseLayers đảm bảo tuân thủ tuyệt đối quy tắc chọn 1 (Radio Button)
+    // 1. Chuẩn hóa baseLayers: Chỉ giữ lại 3 trường chuẩn Bài 4, TUYỆT ĐỐI không có active
     if (body && Array.isArray(body.baseLayers)) {
-      let activeBaseFound = false;
-      body.baseLayers = body.baseLayers.map((item: any) => {
-        const isActive = item.active === true || item.active === 'true' || item.active === '1' || item.active === 1;
-        if (isActive && !activeBaseFound) {
-          activeBaseFound = true;
-          return {
-            name: item.name || '',
-            layerUrl: item.layerUrl || '',
-            thumbnailUrl: item.thumbnailUrl || '',
-            // active: true
-          };
-        }
-        return {
-          name: item.name || '',
-          layerUrl: item.layerUrl || '',
-          thumbnailUrl: item.thumbnailUrl || '',
-          // active: false
-        };
-      });
-
-      // Nếu lỡ không có cái nào active, ép cái đầu tiên thành true
-      if (!activeBaseFound && body.baseLayers.length > 0) {
-        body.baseLayers[0].active = true;
-      }
+      body.baseLayers = body.baseLayers.map((item: any) => ({
+        name: item.name || '',
+        layerUrl: item.layerUrl || '',
+        thumbnailUrl: item.thumbnailUrl || ''
+      }));
     }
 
-    // Chuẩn hóa dữ liệu overlays: ép mọi giá trị active thành kiểu boolean thuần túy
+    // 2. Chuẩn hóa overlays: Giữ nguyên active cho overlays
     if (body && Array.isArray(body.overlays)) {
       body.overlays = body.overlays.map((item: any) => ({
         name: item.name || '',
@@ -153,10 +130,8 @@ export const POST: RequestHandler = async ({ request }) => {
       }));
     }
 
-    // Lưu vào biến cache trên RAM
     cachedConfig = body;
 
-    // Đồng bộ lên MinIO (nếu lỗi quyền ghi thì vẫn chạy ổn định nhờ cache RAM)
     try {
       const jsonString = JSON.stringify(body, null, 2);
       const buffer = Buffer.from(jsonString, 'utf-8');

@@ -2,59 +2,57 @@
   import { onMount, tick } from 'svelte';
   import './jedison.css';
 
-  // 1. Quản lý tọa độ Center hiển thị giao diện 2 cột đẹp mắt
   let centerLat = $state(10.780074);
   let centerLng = $state(106.6876522);
 
-  // Schema phần 1: Thông tin chung (Title, Logo, Zoom)
   let generalSchema = {
     type: 'object',
     additionalProperties: false,
-    title: 'Map Configuration',
+    title: 'Cấu hình chung (General Configuration)',
     properties: {
-      title: { type: 'string', title: 'Map Title' },
-      logoUrl: { type: 'string', title: 'Logo URL' },
-      zoom: { type: 'integer', title: 'Default Zoom Level' }
+      title: { type: 'string', title: 'title' },
+      logoUrl: { type: 'string', title: 'logoUrl' },
+      zoom: { type: 'integer', title: 'zoom' }
     }
   };
 
-  // Schema phần 2: Danh sách các lớp (Base Layers & Overlays)
   let layersSchema = {
     type: 'object',
     additionalProperties: false,
     properties: {
       baseLayers: {
         type: 'array',
-        title: 'Base Layers List',
+        title: 'baseLayers',
         items: {
           type: 'object',
           additionalProperties: false,
+          headerTemplate: '{{self.name}}', // Hiển thị tên layer động trên giao diện
           properties: {
-            name: { type: 'string', title: 'Layer Name' },
-            layerUrl: { type: 'string', title: 'Tile/Layer URL' },
-            thumbnailUrl: { type: 'string', title: 'Thumbnail URL' }
+            name: { type: 'string', title: 'name' },
+            layerUrl: { type: 'string', title: 'layerUrl' },
+            thumbnailUrl: { type: 'string', title: 'thumbnailUrl' }
           }
         }
       },
       overlays: {
         type: 'array',
-        title: 'Overlays List',
+        title: 'overlays',
         items: {
           type: 'object',
           additionalProperties: false,
+          headerTemplate: '{{self.name}}', // Hiển thị tên overlay động trên giao diện
           properties: {
-            name: { type: 'string', title: 'Overlay Name' },
-            wmsUrl: { type: 'string', title: 'WMS URL' },
-            layers: { type: 'string', title: 'Layers ID' },
-            iconUrl: { type: 'string', title: 'Icon URL' },
-            active: { type: 'boolean', title: 'Active (Hiển thị mặc định)' }
+            name: { type: 'string', title: 'name' },
+            wmsUrl: { type: 'string', title: 'wmsUrl' },
+            layers: { type: 'string', title: 'layers' },
+            iconUrl: { type: 'string', title: 'iconUrl' },
+            active: { type: 'boolean', title: 'active' }
           }
         }
       }
     }
   };
 
-  // Dữ liệu mặc định
   let defaultData = {
     title: 'Hệ thống Bản đồ Trực tuyến - Sở Khoa học và Công nghệ TP.HCM',
     logoUrl: 'https://tile.openstreetmap.org/12/3262/1925.png',
@@ -106,7 +104,6 @@
       console.warn('Dùng cấu hình mặc định:', e);
     }
 
-    // Tách dữ liệu ra cho 2 instance
     if (Array.isArray(initialData.center) && initialData.center.length >= 2) {
       centerLat = initialData.center[0];
       centerLng = initialData.center[1];
@@ -129,7 +126,6 @@
       const Jedison = jedisonModule.default;
 
       if (editorGeneralContainer && editorLayersContainer && Jedison) {
-        // Khởi tạo Editor phần 1 (General)
         editorGeneralInstance = new Jedison.Create({
           container: editorGeneralContainer,
           theme: new Jedison.ThemeBootstrap5(),
@@ -140,7 +136,6 @@
           disable_collapse: true
         });
 
-        // Khởi tạo Editor phần 2 (Layers)
         editorLayersInstance = new Jedison.Create({
           container: editorLayersContainer,
           theme: new Jedison.ThemeBootstrap5(),
@@ -167,9 +162,10 @@
       const generalVal = editorGeneralInstance.getValue();
       const layersVal = editorLayersInstance.getValue();
 
-      // Đóng gói lại thành object JSON hoàn chỉnh theo đúng thứ tự yêu cầu
       let rawData = {
-        ...generalVal,
+        title: generalVal.title,
+        logoUrl: generalVal.logoUrl,
+        zoom: generalVal.zoom,
         center: [Number(centerLat) || 0, Number(centerLng) || 0],
         ...layersVal
       };
@@ -225,46 +221,48 @@
       <div class="py-16 text-center text-sm text-slate-400">Đang tải cấu hình bản đồ...</div>
     {/if}
 
-    <!-- 1. Jedison Phần 1: Map Title, Logo URL, Default Zoom Level -->
-    <div class="mb-2 bg-white" style:display={isLoading ? 'none' : 'block'}>
-      <div bind:this={editorGeneralContainer} class="custom-jedison-wrapper"></div>
+    <div class="mb-8 rounded-2xl border border-slate-200/80 bg-slate-50/40 p-6 shadow-xs" style:display={isLoading ? 'none' : 'block'}>
+      <h2 class="text-sm font-bold tracking-wider text-slate-700 mb-5 pb-2 border-b border-slate-200/60">
+        Cấu hình chung (General Configuration)
+      </h2>
+
+      <div class="mb-5 bg-transparent">
+        <div bind:this={editorGeneralContainer} class="custom-jedison-wrapper"></div>
+      </div>
+
+      <div>
+        <label class="block text-md text-slate-700 mb-1.5 tracking-wide">
+          center
+        </label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label for="lat-input" class="block text-xs font-semibold text-slate-500 mb-1">Latitude (Vĩ độ)</label>
+            <input
+              id="lat-input"
+              type="number"
+              step="any"
+              bind:value={centerLat}
+              class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+          <div>
+            <label for="lng-input" class="block text-xs font-semibold text-slate-500 mb-1">Longitude (Kinh độ)</label>
+            <input
+              id="lng-input"
+              type="number"
+              step="any"
+              bind:value={centerLng}
+              class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- 2. Khung nhập tọa độ Center nằm ở giữa (phía dưới Map Configuration) -->
-    <div class="mb-6 rounded-2xl border border-slate-200 p-6 bg-slate-50/50" style:display={isLoading ? 'none' : 'block'}>
-      <div class="text-lg font-bold uppercase tracking-wider text-slate-700 mb-4">
-        Center Coordinates (Tâm bản đồ)
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label for="lat-input" class="block text-xs font-semibold text-slate-600 mb-1.5">Latitude (Vĩ độ - lat)</label>
-          <input
-            id="lat-input"
-            type="number"
-            step="any"
-            bind:value={centerLat}
-            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
-          />
-        </div>
-        <div>
-          <label for="lng-input" class="block text-xs font-semibold text-slate-600 mb-1.5">Longitude (Kinh độ - lng)</label>
-          <input
-            id="lng-input"
-            type="number"
-            step="any"
-            bind:value={centerLng}
-            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- 3. Jedison Phần 2: Base Layers & Overlays -->
     <div class="mb-8 bg-white" style:display={isLoading ? 'none' : 'block'}>
       <div bind:this={editorLayersContainer} class="custom-jedison-wrapper"></div>
     </div>
 
-    <!-- Nút lưu cấu hình -->
     <div class="flex items-center justify-between border-t border-slate-100 pt-6">
       <button
         onclick={handleSave}
