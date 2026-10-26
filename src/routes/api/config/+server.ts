@@ -125,14 +125,14 @@ export const POST: RequestHandler = async ({ request }) => {
             name: item.name || '',
             layerUrl: item.layerUrl || '',
             thumbnailUrl: item.thumbnailUrl || '',
-            active: true
+            // active: true
           };
         }
         return {
           name: item.name || '',
           layerUrl: item.layerUrl || '',
           thumbnailUrl: item.thumbnailUrl || '',
-          active: false
+          // active: false
         };
       });
 
