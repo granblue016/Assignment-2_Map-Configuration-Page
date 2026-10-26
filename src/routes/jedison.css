@@ -62,3 +62,29 @@
   padding: 0.35rem 0.75rem !important;
   font-weight: 500 !important;
 }
+/* Ẩn hoàn toàn thanh tiêu đề legend của các khối Jedison */
+.jedi-editor-legend {
+  display: none !important;
+}
+/* 1. Chỉ ẩn thanh legend ở cấp độ gốc (chứa dấu # phiền toái) */
+div[data-level="0"] > fieldset > legend.jedi-editor-legend {
+  display: none !important;
+}
+
+/* 2. Giữ lại và làm đẹp tiêu đề cho các mảng con (Base Layers, Overlays) */
+.custom-jedison-wrapper .jedi-editor-legend-left {
+  display: block !important;
+  font-weight: 700 !important;
+  color: #475569 !important;
+  text-transform: uppercase;
+  font-size: 1.25rem !important;
+  letter-spacing: 0.05em;
+}
+
+/* 3. Căn chỉnh lại thanh legend con cho gọn gàng, nút bấm nằm bên phải */
+.custom-jedison-wrapper .jedi-editor-legend {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 0 0.5rem 0 !important;
+  align-items: center !important;
+}

@@ -22,12 +22,14 @@ const defaultMapConfig = {
     {
       name: "OpenStreetMap",
       layerUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-      thumbnailUrl: "https://tile.openstreetmap.org/12/3262/1925.png"
+      thumbnailUrl: "https://tile.openstreetmap.org/12/3262/1925.png",
+      // active: true
     },
     {
       name: "Vệ tinh",
       layerUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      thumbnailUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/12/1925/3262.png"
+      thumbnailUrl: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/12/1925/3262.png",
+      // active: false
     }
   ],
   overlays: [
@@ -112,25 +114,49 @@ export const POST: RequestHandler = async ({ request }) => {
   try {
     const body = await request.json();
 
-    // Chuẩn hóa dữ liệu: ép mọi giá trị active thành kiểu boolean thuần túy (chống lỗi string "true")
-    if (body && Array.isArray(body.overlays)) {
-      body.overlays = body.overlays.map((item: any) => ({
-        ...item,
-        active: item.active === true || item.active === 'true'
-      }));
+    // 🛡️ BỔ SUNG QUAN TRỌNG: Chuẩn hóa baseLayers đảm bảo tuân thủ tuyệt đối quy tắc chọn 1 (Radio Button)
+    if (body && Array.isArray(body.baseLayers)) {
+      let activeBaseFound = false;
+      body.baseLayers = body.baseLayers.map((item: any) => {
+        const isActive = item.active === true || item.active === 'true' || item.active === '1' || item.active === 1;
+        if (isActive && !activeBaseFound) {
+          activeBaseFound = true;
+          return {
+            name: item.name || '',
+            layerUrl: item.layerUrl || '',
+            thumbnailUrl: item.thumbnailUrl || '',
+            active: true
+          };
+        }
+        return {
+          name: item.name || '',
+          layerUrl: item.layerUrl || '',
+          thumbnailUrl: item.thumbnailUrl || '',
+          active: false
+        };
+      });
+
+      // Nếu lỡ không có cái nào active, ép cái đầu tiên thành true
+      if (!activeBaseFound && body.baseLayers.length > 0) {
+        body.baseLayers[0].active = true;
+      }
     }
 
-    if (body && Array.isArray(body.baseLayers)) {
-      body.baseLayers = body.baseLayers.map((item: any) => ({
-        ...item,
-        active: item.active === true || item.active === 'true'
+    // Chuẩn hóa dữ liệu overlays: ép mọi giá trị active thành kiểu boolean thuần túy
+    if (body && Array.isArray(body.overlays)) {
+      body.overlays = body.overlays.map((item: any) => ({
+        name: item.name || '',
+        wmsUrl: item.wmsUrl || '',
+        layers: item.layers || '',
+        iconUrl: item.iconUrl || '',
+        active: item.active === true || item.active === 'true' || item.active === '1' || item.active === 1
       }));
     }
 
     // Lưu vào biến cache trên RAM
     cachedConfig = body;
 
-    // Thử đồng bộ lên MinIO (nếu lỗi quyền ghi thì vẫn chạy ổn định nhờ cache RAM)
+    // Đồng bộ lên MinIO (nếu lỗi quyền ghi thì vẫn chạy ổn định nhờ cache RAM)
     try {
       const jsonString = JSON.stringify(body, null, 2);
       const buffer = Buffer.from(jsonString, 'utf-8');

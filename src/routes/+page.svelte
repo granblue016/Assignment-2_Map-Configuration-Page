@@ -2,27 +2,27 @@
   import { onMount, tick } from 'svelte';
   import './jedison.css';
 
-  let mapConfigSchema = {
+  // 1. Quản lý tọa độ Center hiển thị giao diện 2 cột đẹp mắt
+  let centerLat = $state(10.780074);
+  let centerLng = $state(106.6876522);
+
+  // Schema phần 1: Thông tin chung (Title, Logo, Zoom)
+  let generalSchema = {
     type: 'object',
     additionalProperties: false,
     title: 'Map Configuration',
     properties: {
       title: { type: 'string', title: 'Map Title' },
       logoUrl: { type: 'string', title: 'Logo URL' },
-      zoom: { type: 'integer', title: 'Default Zoom Level' },
-      markerInfo: {
-        type: 'object',
-        additionalProperties: false,
-        title: 'Marker Information',
-        properties: {
-          coords: {
-            type: 'array',
-            title: 'Marker Coordinates [lat, lng]',
-            items: { type: 'number' }
-          },
-          popupText: { type: 'string', title: 'Popup Description' }
-        }
-      },
+      zoom: { type: 'integer', title: 'Default Zoom Level' }
+    }
+  };
+
+  // Schema phần 2: Danh sách các lớp (Base Layers & Overlays)
+  let layersSchema = {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
       baseLayers: {
         type: 'array',
         title: 'Base Layers List',
@@ -32,8 +32,7 @@
           properties: {
             name: { type: 'string', title: 'Layer Name' },
             layerUrl: { type: 'string', title: 'Tile/Layer URL' },
-            thumbnailUrl: { type: 'string', title: 'Thumbnail URL' },
-            active: { type: 'boolean', title: 'Active (Hiển thị mặc định)' }
+            thumbnailUrl: { type: 'string', title: 'Thumbnail URL' }
           }
         }
       },
@@ -55,41 +54,42 @@
     }
   };
 
+  // Dữ liệu mặc định
   let defaultData = {
     title: 'Hệ thống Bản đồ Trực tuyến - Sở Khoa học và Công nghệ TP.HCM',
     logoUrl: 'https://tile.openstreetmap.org/12/3262/1925.png',
     zoom: 8,
-    markerInfo: {
-      coords: [10.780074, 106.6876522],
-      popupText: 'Sở Khoa học và Công nghệ - 273 Điện Biên Phủ'
-    },
+    center: [10.780074, 106.6876522],
     baseLayers: [
       {
         name: 'OpenStreetMap',
         layerUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-        thumbnailUrl: 'https://tile.openstreetmap.org/12/3262/1925.png',
-        active: true
+        thumbnailUrl: 'https://tile.openstreetmap.org/12/3262/1925.png'
+      },
+      {
+        name: 'Vệ tinh',
+        layerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        thumbnailUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/12/1925/3262.png'
       }
     ],
     overlays: [
       {
         name: 'Khu bảo tồn quốc gia Việt Nam',
-        url: 'https://geoserver.opendevelopmentmekong.net/geoserver/ODVietnam/wms',
-        id: 'ODVietnam:Khu bao ton',
+        wmsUrl: 'https://geoserver.opendevelopmentmekong.net/geoserver/ODVietnam/wms',
+        layers: 'ODVietnam:Khu bao ton',
         iconUrl: './1.jpg',
         active: true
       }
     ]
   };
 
-  let editorContainer: HTMLDivElement;
+  let editorGeneralContainer: HTMLDivElement;
+  let editorLayersContainer: HTMLDivElement;
   let statusMessage = $state('');
   let isSuccess = $state(true);
   let isLoading = $state(true);
-  let editorInstance: any = null;
-
-  let centerLat = $state(10.780074);
-  let centerLng = $state(106.6876522);
+  let editorGeneralInstance: any = null;
+  let editorLayersInstance: any = null;
 
   onMount(async () => {
     let initialData = JSON.parse(JSON.stringify(defaultData));
@@ -99,34 +99,6 @@
       if (res.ok) {
         const json = await res.json();
         if (json && json.title) {
-          const coords = json.centerCoordinates || json.center;
-          if (coords && coords.length >= 2) {
-            centerLat = coords[0];
-            centerLng = coords[1];
-          }
-
-          delete json.center;
-          delete json.centerCoordinates;
-
-          // Chuẩn hóa baseLayers: đảm bảo luôn có duy nhất 1 active true
-          if (Array.isArray(json.baseLayers) && json.baseLayers.length > 0) {
-            let firstTrueIdx = json.baseLayers.findIndex((item: any) => item.active === true || item.active === 'true' || item.active === 1);
-            if (firstTrueIdx === -1) firstTrueIdx = 0;
-            json.baseLayers = json.baseLayers.map((item: any, index: number) => ({
-              ...item,
-              active: (index === firstTrueIdx)
-            }));
-          }
-
-          if (Array.isArray(json.overlays)) {
-            json.overlays = json.overlays.map((item: any) => ({
-              ...item,
-              layers: item.layers || item.id || '',
-              wmsUrl: item.wmsUrl || item.url || '',
-              active: item.active !== undefined ? item.active : false
-            }));
-          }
-
           initialData = json;
         }
       }
@@ -134,44 +106,52 @@
       console.warn('Dùng cấu hình mặc định:', e);
     }
 
+    // Tách dữ liệu ra cho 2 instance
+    if (Array.isArray(initialData.center) && initialData.center.length >= 2) {
+      centerLat = initialData.center[0];
+      centerLng = initialData.center[1];
+    }
+
+    const generalData = {
+      title: initialData.title || '',
+      logoUrl: initialData.logoUrl || '',
+      zoom: initialData.zoom ?? 8
+    };
+
+    const layersData = {
+      baseLayers: Array.isArray(initialData.baseLayers) ? initialData.baseLayers : [],
+      overlays: Array.isArray(initialData.overlays) ? initialData.overlays : []
+    };
+
     try {
       // @ts-ignore
       const jedisonModule = await import('jedison');
       const Jedison = jedisonModule.default;
 
-      if (editorContainer && Jedison) {
-        editorInstance = new Jedison.Create({
-          container: editorContainer,
+      if (editorGeneralContainer && editorLayersContainer && Jedison) {
+        // Khởi tạo Editor phần 1 (General)
+        editorGeneralInstance = new Jedison.Create({
+          container: editorGeneralContainer,
           theme: new Jedison.ThemeBootstrap5(),
-          schema: mapConfigSchema,
-          data: initialData,
+          schema: generalSchema,
+          data: generalData,
           disable_properties: true,
           disable_edit_json: true,
           disable_collapse: true
         });
 
-        // 👇 ĐẢM BẢO LOGIC RADIO BUTTON TRÊN GIAO DIỆN FORM TRONG THỜI GIAN THỰC
-        await tick();
-        
-        // Theo dõi sự kiện thay đổi trên container của Jedison
-        editorContainer.addEventListener('change', (e: Event) => {
-          const target = e.target as HTMLInputElement | HTMLSelectElement;
-          // Kiểm tra nếu phần tử thay đổi thuộc trường active của baseLayers
-          if (target && target.tagName === 'SELECT' && target.name.includes('baseLayers') && target.name.includes('active')) {
-            const isNowTrue = target.value === 'true' || target.value === '1';
-            if (isNowTrue) {
-              // Lấy toàn bộ các select box active trong baseLayers
-              const allActiveSelects = editorContainer.querySelectorAll<HTMLSelectElement>('[name*="baseLayers"][name*="active"]');
-              allActiveSelects.forEach(select => {
-                if (select !== target) {
-                  select.value = 'false';
-                  // Kích hoạt sự kiện input/change để Jedison cập nhật lại internal value
-                  select.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-              });
-            }
-          }
+        // Khởi tạo Editor phần 2 (Layers)
+        editorLayersInstance = new Jedison.Create({
+          container: editorLayersContainer,
+          theme: new Jedison.ThemeBootstrap5(),
+          schema: layersSchema,
+          data: layersData,
+          disable_properties: true,
+          disable_edit_json: true,
+          disable_collapse: true
         });
+
+        await tick();
       }
     } catch (e) {
       console.error('Lỗi khởi tạo Jedison:', e);
@@ -181,39 +161,18 @@
   });
 
   async function handleSave() {
-    if (!editorInstance) return;
+    if (!editorGeneralInstance || !editorLayersInstance) return;
 
     try {
-      let rawData = editorInstance.getValue();
+      const generalVal = editorGeneralInstance.getValue();
+      const layersVal = editorLayersInstance.getValue();
 
-      // Cập nhật tọa độ tâm bản đồ chuẩn theo JSON mẫu
-      rawData.center = [Number(centerLat) || 0, Number(centerLng) || 0];
-      delete rawData.centerCoordinates;
-
-      if (rawData) {
-        // Ép buộc baseLayers chỉ được phép có DUY NHẤT 1 layer active
-        if (Array.isArray(rawData.baseLayers)) {
-          let activeBaseFound = false;
-          rawData.baseLayers = rawData.baseLayers.map((item: any) => {
-            const isActive = item.active === true || item.active === 'true' || item.active === '1' || item.active === 1;
-            if (isActive && !activeBaseFound) {
-              activeBaseFound = true;
-              return { ...item, active: true };
-            }
-            return { ...item, active: false };
-          });
-        }
-
-        // Chuẩn hóa overlays
-        if (Array.isArray(rawData.overlays)) {
-          rawData.overlays = rawData.overlays.map((item: any) => ({
-            ...item,
-            layers: item.layers || item.id || '',
-            wmsUrl: item.wmsUrl || item.url || '',
-            active: item.active === true || item.active === 'true' || item.active === '1' || item.active === 1
-          }));
-        }
-      }
+      // Đóng gói lại thành object JSON hoàn chỉnh theo đúng thứ tự yêu cầu
+      let rawData = {
+        ...generalVal,
+        center: [Number(centerLat) || 0, Number(centerLng) || 0],
+        ...layersVal
+      };
 
       statusMessage = 'Đang lưu cấu hình...';
       isSuccess = true;
@@ -253,7 +212,6 @@
   <div
     class="mx-auto max-w-4xl rounded-3xl border border-slate-200/60 bg-white p-8 shadow-xs sm:p-10"
   >
-    <!-- Tiêu đề trang -->
     <div class="mb-8 flex items-center justify-between border-b border-slate-100 pb-5">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-slate-900">Map Configuration Admin</h1>
@@ -263,48 +221,47 @@
       </div>
     </div>
 
-    <!-- Ô nhập tọa độ trung tâm (Center Coordinates) độc lập ở phía trên -->
-    <div class="mb-8 rounded-2xl border border-slate-200/70 bg-slate-50/80 p-6">
-      <div class="mb-3 flex items-center justify-between">
-        <label class="block text-xs font-bold tracking-wider text-slate-600 uppercase">
-          Center Coordinates (Tâm bản đồ)
-        </label>
+    {#if isLoading}
+      <div class="py-16 text-center text-sm text-slate-400">Đang tải cấu hình bản đồ...</div>
+    {/if}
+
+    <!-- 1. Jedison Phần 1: Map Title, Logo URL, Default Zoom Level -->
+    <div class="mb-2 bg-white" style:display={isLoading ? 'none' : 'block'}>
+      <div bind:this={editorGeneralContainer} class="custom-jedison-wrapper"></div>
+    </div>
+
+    <!-- 2. Khung nhập tọa độ Center nằm ở giữa (phía dưới Map Configuration) -->
+    <div class="mb-6 rounded-2xl border border-slate-200 p-6 bg-slate-50/50" style:display={isLoading ? 'none' : 'block'}>
+      <div class="text-lg font-bold uppercase tracking-wider text-slate-700 mb-4">
+        Center Coordinates (Tâm bản đồ)
       </div>
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs">
-          <span class="mb-1.5 block text-xs font-semibold text-slate-600"
-            >Latitude (Vĩ độ - lat)</span
-          >
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="lat-input" class="block text-xs font-semibold text-slate-600 mb-1.5">Latitude (Vĩ độ - lat)</label>
           <input
+            id="lat-input"
             type="number"
             step="any"
             bind:value={centerLat}
-            placeholder="10.780074"
-            class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
-        <div class="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs">
-          <span class="mb-1.5 block text-xs font-semibold text-slate-600"
-            >Longitude (Kinh độ - lng)</span
-          >
+        <div>
+          <label for="lng-input" class="block text-xs font-semibold text-slate-600 mb-1.5">Longitude (Kinh độ - lng)</label>
           <input
+            id="lng-input"
             type="number"
             step="any"
             bind:value={centerLng}
-            placeholder="106.6876522"
-            class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm font-medium text-slate-800 transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-blue-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
       </div>
     </div>
 
-    {#if isLoading}
-      <div class="py-16 text-center text-sm text-slate-400">Đang tải cấu hình bản đồ...</div>
-    {/if}
-
-    <!-- Khu vực Jedison Editor -->
+    <!-- 3. Jedison Phần 2: Base Layers & Overlays -->
     <div class="mb-8 bg-white" style:display={isLoading ? 'none' : 'block'}>
-      <div bind:this={editorContainer} class="custom-jedison-wrapper"></div>
+      <div bind:this={editorLayersContainer} class="custom-jedison-wrapper"></div>
     </div>
 
     <!-- Nút lưu cấu hình -->
