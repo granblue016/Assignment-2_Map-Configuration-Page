@@ -148,58 +148,66 @@
 		}
 	});
 
-	async function handleSave() {
-		if (!editorInstance) return;
+async function handleSave() {
+    if (!editorInstance) return;
 
-		try {
-			let rawData = editorInstance.getValue();
+    try {
+      let rawData = editorInstance.getValue();
 
-			// Đưa tọa độ lat/lng từ 2 ô input riêng biệt vào mảng center (khớp với JSON mẫu của bạn)
-			rawData.center = [Number(centerLat) || 0, Number(centerLng) || 0];
-			delete rawData.centerCoordinates; // Dọn dẹp nếu có thừa
+      // Cập nhật tọa độ tâm bản đồ chuẩn theo JSON mẫu
+      rawData.center = [Number(centerLat) || 0, Number(centerLng) || 0];
+      delete rawData.centerCoordinates;
 
-			if (rawData) {
-				if (Array.isArray(rawData.baseLayers)) {
-					rawData.baseLayers = rawData.baseLayers.map((item: any) => ({
-						...item,
-						active: item.active === true || item.active === 'true' || item.active === '1'
-					}));
-				}
-				if (Array.isArray(rawData.overlays)) {
-					rawData.overlays = rawData.overlays.map((item: any) => ({
-						...item,
-						layers: item.layers || item.id || '', // Đồng bộ trường layers cho chuẩn với map viewer
-						wmsUrl: item.wmsUrl || item.url || '',
-						active: item.active === true || item.active === 'true' || item.active === '1'
-					}));
-				}
-			}
+      if (rawData) {
+        // 👇 QUAN TRỌNG: Ép buộc baseLayers chỉ được phép có DUY NHẤT 1 layer active (Chọn cái này, cái kia off)
+        if (Array.isArray(rawData.baseLayers)) {
+          let activeBaseFound = false;
+          rawData.baseLayers = rawData.baseLayers.map((item: any) => {
+            const isActive = item.active === true || item.active === 'true' || item.active === '1';
+            if (isActive && !activeBaseFound) {
+              activeBaseFound = true;
+              return { ...item, active: true }; // Giữ lại cái được chọn đầu tiên
+            }
+            return { ...item, active: false }; // Tắt tất cả các cái còn lại
+          });
+        }
 
-			statusMessage = 'Đang lưu cấu hình...';
-			isSuccess = true;
+        // Chuẩn hóa overlays
+        if (Array.isArray(rawData.overlays)) {
+          rawData.overlays = rawData.overlays.map((item: any) => ({
+            ...item,
+            layers: item.layers || item.id || "",
+            wmsUrl: item.wmsUrl || item.url || "",
+            active: item.active === true || item.active === 'true' || item.active === '1'
+          }));
+        }
+      }
 
-			const response = await fetch('/api/config', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(rawData)
-			});
+      statusMessage = 'Đang lưu cấu hình...';
+      isSuccess = true;
 
-			const result = await response.json();
-			if (result.success) {
-				statusMessage = 'Lưu cấu hình thành công!';
-				isSuccess = true;
-			} else {
-				statusMessage = 'Lưu thất bại: ' + (result.error || 'Lỗi server');
-				isSuccess = false;
-			}
-		} catch (err) {
-			console.error(err);
-			statusMessage = 'Lỗi kết nối khi lưu!';
-			isSuccess = false;
-		}
+      const response = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rawData)
+      });
 
-		setTimeout(() => (statusMessage = ''), 5000);
-	}
+      const result = await response.json();
+      if (result.success) {
+        statusMessage = 'Lưu cấu hình thành công!';
+        isSuccess = true;
+      } else {
+        statusMessage = 'Lưu thất bại: ' + (result.error || 'Lỗi server');
+        isSuccess = false;
+      }
+    } catch (err) {
+      console.error(err);
+      statusMessage = 'Lỗi kết nối khi lưu!';
+      isSuccess = false;
+    }
+
+    setTimeout(() => (statusMessage = ''), 5000);
+  }
 </script>
 
 <svelte:head>
